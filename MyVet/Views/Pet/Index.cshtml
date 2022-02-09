@@ -1,0 +1,463 @@
+﻿
+@{
+    ViewData["Title"] = "Mis Mascotas";
+}
+
+<h1>Listado de mascotas</h1>
+
+
+<p>
+
+    <button class="btn btn-primary" onclick="nuevaMascota()">
+
+        <i class="fas fa-paw"></i> Nuevo Mascota
+    </button>
+</p>
+
+<div class="row">
+
+    <table class="table">
+        <thead class="thead-dark">
+            <tr>
+                <th scope="col">Nombre</th>
+                <th scope="col">Edad</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Sexo</th>
+                <th scope="col">Opciones</th>
+            </tr>
+        </thead>
+
+        <tbody id="cuerpoPets"></tbody>
+    </table>
+
+</div>
+
+
+
+<div class="modal fade" id="modalPet" tabindex="-1" role="dialog" aria-labelledby="modalPetLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="idTituloModalPet">Crear Mascota</h5>
+            </div>
+            <div class="modal-body">
+                <form>
+
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label for="recipient-name" class="col-form-label">Nombre</label>
+                            <input type="text" class="form-control" id="txtNamePet" placeholder="Nombre mascota" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label for="recipient-name" class="col-form-label">Fecha Nacimiento</label>
+                            <input type="date" class="form-control" id="txtDateBornPet" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label class="control-label"> Sexo</label>
+                            <select id="cmbSex" class="form-control" onchange="seleccionarSexo()" required>
+                                <option> Seleccionar</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="control-label"> Tipo Mascota</label>
+                            <select id="cmbTypePet" class="form-control" onchange="seleccionarTipoMascota()" required>
+                                <option> Seleccionar</option>
+                            </select>
+                        </div>
+                    </div>
+
+
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    <i class="fas fa-window-close"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="guardarPet()">
+                    <i class="far fa-save"></i>
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@section Scripts{
+  @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+<script type="text/javascript" charset="utf-8">
+
+    //Traer los datos de la base de datos del modelo
+    //var listaPets= JSON.parse('@Json.Serialize(@Model)');
+    var listSexs=[];
+    var listTypePets=[];
+
+    let idSex='';
+    let idTypePet='';
+    let idPet='';
+
+    //lo primero que se ejecuta
+    $(document).ready(function () {
+
+       
+       getAllMyPets();
+       getSexs();
+       getTypePets();
+    });
+
+    function getAllMyPets()
+    {
+        modalProcesando(true);
+        $.ajax({
+            url: '@Url.Action("GetAllMyPets", "Pet")',
+            method: 'GET',
+            dataType: "json",
+            success: function (data) {
+                modalProcesando(false);
+
+                listaPets=data;
+                //carga la nueva data de base de datos en el grid
+                cargarGridPets(listaPets); 
+            },
+            error: function (xhr, textStatus, errorThrown) {
+                    modalProcesando(false);
+                    console.error(xhr, textStatus, errorThrown);
+                }
+         });
+    }
+
+    function cargarGridPets(data){
+        $("#cuerpoPets").html("");
+
+        for(var i=0; i<data.length; i++){
+            var tr=`
+             <tr>
+                <th>`+ data[i].name+ `</th>
+                <th> `+ data[i].edad +`</th>
+                <th> `+ data[i].typePet +`</th>
+                <th> `+ data[i].sexo + `</th>
+                <td>
+                <button  class="btn btn-warning" onclick="editarPet(`+ data[i].id +`)"><i class="fas fa-edit"></i> Editar</button>
+                <button class="btn btn-danger" onclick="eliminarPet(`+ data[i].id +`)"><i class="far fa-trash-alt"></i> Eliminar</button>
+                </td>
+            </tr>
+            `;
+            $("#cuerpoPets").append(tr);
+        }
+    }
+
+    function eliminarPet(idPet)
+    {
+        console.log("mandó a eliminar", idPet);
+        Swal.fire({
+            title: '¿Confirmar Eliminacion?',
+            text: "No podrás revertir esto!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            cancelButtonText: 'Cancelar',
+            confirmButtonText: 'Si, Eliminar!',
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                modalProcesando(true);
+                //petición
+                $.ajax({
+                    url: '@Url.Action("DeletePet", "Pet")',
+                    method: 'DELETE',
+                    data:{
+                        idPet:idPet
+                    },
+                    dataType: "json",
+                    success: function (data) {
+
+                        modalProcesando(false);
+                        console.log(data);
+                        if (data.isSuccess){
+                            //filter trae la lista y omite el id del que se elimino con la expresion landa
+                            listaPets=listaPets.filter(x=>x.id!=idPet);
+                            cargarGridPets(listaPets);
+                            Swal.fire(
+                                'Eliminado!',
+                                data.message,
+                                'success');
+                        }else{
+                            Swal.fire(
+                                'Error!',
+                                data.message,
+                                'error');
+                        }
+                     },
+                     error: function (xhr, textStatus, errorThrown) {
+                         modalProcesando(false);
+                         console.error(xhr, textStatus, errorThrown);
+                     }
+                  });
+                }
+            });
+        }
+    
+    function nuevaMascota(){
+
+       if(listSexs.length==0){
+            getSexs();
+        }
+        if(listTypePets.length==0){
+            getTypePets();
+        }
+       
+       $('#idTituloModalPet').html("Crear Mascota");
+       limpiarForm();//--------------------------------------------------linea que agregue
+       $('#modalPet').modal({keyboard:true});
+    }
+
+    function getSexs()
+    {
+        modalProcesando(true);
+        $.ajax({
+            //Accion del controlador, nombre del controlador)
+            url: '@Url.Action("GetAllSexs", "Pet")',
+            method: 'GET',
+            dataType: "json",
+            success: function (data) {
+
+                modalProcesando(false);
+                listSexs=data;
+                console.log(listSexs);
+                cargarSexs(listSexs);
+            },
+            error: function (xhr, textStatus, errorThrown) {
+                    modalProcesando(false);
+                    console.error(xhr, textStatus, errorThrown);
+                }
+         });
+    }
+
+    function getTypePets()
+    {
+        modalProcesando(true);
+        $.ajax({
+            url: '@Url.Action("GetAllTypePet", "Pet")',
+            method: 'GET',
+            dataType: "json",
+            success: function (data) {
+                modalProcesando(false);
+                listTypePets=data;
+                cargarTypePets(listTypePets);
+            },
+            error: function (xhr, textStatus, errorThrown) {
+                    modalProcesando(false);
+                    console.error(xhr, textStatus, errorThrown);
+                }
+         });
+    }
+
+    //Cargar sexos en el comboBox
+    function cargarSexs(data, selected) {
+        $("#cmbSex").empty();
+        $("#cmbSex").append('<option value="" disabled selected>Seleccione un sexo</option>');
+        $.each(data, function (i, lista) {
+            //seleccione el que estaba si esta editando else muestre todos los que hay
+            if (data[i].idSex == selected) {
+                $("#cmbSex").append('<option value="' + data[i].idSex + '"selected>' + data[i].sex + '</option>');
+            }
+            else {
+                $("#cmbSex").append('<option value="' + data[i].idSex + '">' + data[i].sex + '</option>');
+            }
+        });
+    }
+
+    //Cargar los tipos de mascotas en el comboBox
+    function cargarTypePets(data, selected) {
+        $("#cmbTypePet").empty();
+        $("#cmbTypePet").append('<option value="" disabled selected>Seleccione un Tipo Mascota</option>');
+        $.each(data, function (i, lista) {
+            if (data[i].idTypePet == selected) {
+                $("#cmbTypePet").append('<option value="' + data[i].idTypePet + '"selected>' + data[i].typePet + '</option>');
+            }
+            else {
+                $("#cmbTypePet").append('<option value="' + data[i].idTypePet + '">' + data[i].typePet + '</option>');
+            }
+        });
+    }
+
+    //Guarda o actualiza una mascota
+    function guardarPet(){
+
+        if(validarForm())
+        {
+            //toastMessage('success','formulario bueno');
+            let parametro={
+                DateBorns:$("#txtDateBornPet").val(),
+                Name:$("#txtNamePet").val(),
+                IdSex:idSex,
+                IdTypePet:idTypePet,
+            };
+            
+            if(idPet=='')
+            {
+                modalProcesando(true);
+                $.ajax({
+                    url: '@Url.Action("InsertPet", "Pet")',
+                    method: 'POST',
+                    data:parametro,
+                    dataType: "json",
+                    success: function (data) {
+                        modalProcesando(false);
+                       
+                        console.log(listaPets);
+
+                        if (data){
+                            $('#modalPet').modal('hide'); 
+                            limpiarForm();
+                            toastMessage('success','Mascota guardada exitosamente!');
+
+                            getAllMyPets();
+                            cargarGridPets(listaPets);
+                            
+                        }else{
+                             toastMessage('error','Hubo un error al guardar, por favor intentarlo nuevamente!');
+                        }
+                        
+                    },
+                    error: function (xhr, textStatus, errorThrown) {
+                            modalProcesando(false);
+                            toastMessage('error','Hubo un error al guardar, por favor intentarlo nuevamente!');
+                            console.error(xhr, textStatus, errorThrown);
+                        }
+                 });
+            }else{
+                parametro.Id=idPet;
+                console.log(parametro);
+                console.log('actualizar');
+
+                modalProcesando(true);
+                $.ajax({
+                    url: '@Url.Action("UpdatePet", "Pet")',
+                    method: 'PUT',
+                    data:parametro,
+                    dataType: "json",
+                    success: function (data) {
+                        modalProcesando(false);
+                       
+                        console.log(listaPets);
+
+                        if (data){
+                            $('#modalPet').modal('hide'); 
+                            limpiarForm();
+                            toastMessage('success','Mascota actualizada exitosamente!');
+                            //cargar nuevamente la data--------------------------------
+                            getAllMyPets();
+                        }else{
+                             toastMessage('error','Hubo un error al guardar, por favor intentarlo nuevamente!');
+                        }
+                        
+                    },
+                    error: function (xhr, textStatus, errorThrown) {
+                            modalProcesando(false);
+                            toastMessage('error','Hubo un error al guardar, por favor intentarlo nuevamente!');
+                            console.error(xhr, textStatus, errorThrown);
+                        }
+                 });
+            }
+        }
+    }
+
+    function validarForm()
+    {
+        if($("#txtNamePet").val()=='')
+        {
+                $("#txtNamePet").focus();
+                toastMessage('warning','El nombre es obligatorio.');
+                return false;
+        }
+        if($("#txtDateBornPet").val()=='')
+        {
+                $("#txtDateBornPet").focus();
+                toastMessage('warning','La fecha de nacimiento es obligatoria.');
+                return false;
+        }
+        if(idSex=='')
+        {
+                $("#cmbSex").focus();
+                toastMessage('warning','El sexo de la es obligatorio.');
+                return false;
+        }
+        if(idTypePet=='')
+        {
+                $("#cmbTypePet").focus();
+                toastMessage('warning','El tipo mascota es obligatorio.');
+                return false;
+        }
+        return true;
+    }
+
+    function limpiarForm()
+    {
+       $("#txtNamePet").val('');
+       $("#txtDateBornPet").val('');
+       idSex='';
+       idTypePet='';
+       idPet='';
+
+       cargarSexs(listSexs);
+       cargarTypePets(listTypePets);
+    }
+
+    //Cargar el id del sexo que selecciones en la variable idSex
+    function seleccionarSexo()
+    {
+        var combo = document.getElementById("cmbSex");
+        let selected = combo.options[combo.selectedIndex].value;
+        //let text = combo.options[combo.selectedIndex].text;
+        idSex=selected;
+    }
+
+    //Cargar el valor del id de tipo mascota
+    function seleccionarTipoMascota()
+    {
+        var combo=document.getElementById("cmbTypePet");
+        let selected = combo.options[combo.selectedIndex].value;
+        //let text = combo.options[combo.selectedIndex].text;
+        idTypePet=selected;
+    }
+
+    function editarPet(id)
+    {
+        //Asignar el id que viene del grid a la variable global idPet
+        idPet=id;
+        let pet= listaPets.find(x=>x.id==idPet);
+
+        idTypePet = pet.idTypePet;
+        idSex = pet.idSex;
+
+        $('#txtNamePet').val(pet.name);
+
+        //setear fechas
+        var now = new Date(pet.dateBorns);
+        var day = ("0" + now.getDate()).slice(-2);
+        var month = ("0" + (now.getMonth() + 1)).slice(-2);
+        var today = now.getFullYear()+"-"+(month)+"-"+(day);
+
+        $('#txtDateBornPet').val(today)
+
+        cargarSexs(listSexs,pet.idSex);
+        cargarTypePets(listTypePets,pet.idTypePet);
+
+        $('#idTituloModalPet').html("Editar Mascota");
+        $('#modalPet').modal({keyboard:true});
+    }
+
+    
+</script>
+}

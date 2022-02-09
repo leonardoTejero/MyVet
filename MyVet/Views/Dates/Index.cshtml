@@ -1,0 +1,515 @@
+﻿@{
+    ViewData["Title"] = "Mis Citas";
+}
+
+<h1>Listado de Citas</h1>
+
+
+<p>
+
+    <button class="btn btn-primary" onclick="NuevaCita()">
+
+       <i class="fas fa-table"></i> Nueva Cita
+    </button>
+</p>
+
+
+<div class="row">
+
+    <table class="table">
+        <thead class="thead-dark">
+            <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col">Mascota</th>
+                <th scope="col">Servicio</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Fecha Cierre</th>
+                <th scope="col">Opciones</th>
+            </tr>
+        </thead>
+
+        <tbody id="cuerpoDates"></tbody>
+    </table>
+</div>
+
+@*Modal---*@
+<div class="modal fade" id="modalDates" tabindex="-1" role="dialog" aria-labelledby="modalDatesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="idTituloModalDates">Crear Cita</h5>
+            </div>
+            <div class="modal-body">
+                <form>
+
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label for="recipient-name" class="col-form-label">Contacto</label>
+                            <input type="text" class="form-control" id="txtContact" placeholder="Numero de contacto" maxlength="100" required>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label for="recipient-name" class="col-form-label">Fecha Cita</label>
+                            <input type="date" class="form-control" id="txtDateAppointment" required>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 form-group">
+                            <label class="control-label"> Mascota </label>
+                            <select id="cmbPet" class="form-control" onchange="seleccionarPet()" required>
+                                <option> Seleccionar</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 form-group">
+                            <label class="control-label"> Servicio </label>
+                            <select id="cmbService" class="form-control" onchange="seleccionarService()" required>
+                                <option> Seleccionar</option>
+                            </select>
+                        </div>
+                    </div>
+                     <div class="row">
+                        <div class="col-md-12 form-group">
+                            <label for="recipient-name" class="col-form-label">Descripción</label>
+                            <textarea class="form-control"
+                                      id="txtDescripcion"
+                                      required
+                                      placeholder="Descripción de la cita"
+                                      maxlength="300">
+
+                            </textarea>
+                        </div>
+                    </div>
+
+
+
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">
+                    <i class="fas fa-window-close"></i>
+                    Cancelar
+                </button>
+                <button type="button" class="btn btn-success" onclick="guardarDate()">
+                    <i class="far fa-save"></i>
+                    Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts{
+  @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+<script type="text/javascript" charset="utf-8">
+
+    var listaServicios = [];
+    var listaPets = [];
+    var listaDates = [];
+
+    
+    let idPet = '';
+    let idDate = '';
+    let idState = '';
+    let idService = '';
+
+    $(document).ready(function () {
+
+        getServices();
+        getAllMyPets();
+        getAllMyDates();
+       
+    });
+
+    //obtener citas en memoria
+    function getAllMyDates()
+    {
+        modalProcesando(true);
+        $.ajax({
+            url: '@Url.Action("GetAllMyDates", "Dates")',
+            method: 'GET',
+            dataType: "json",
+            success: function (data) {
+                modalProcesando(false);
+
+                listaDates = data;
+                //console.log(listaDates);
+                //carga la nueva data de base de datos en el grid
+                cargarGridDates(listaDates); 
+            },
+            error: function (xhr, textStatus, errorThrown) {
+                    modalProcesando(false);
+                    console.error(xhr, textStatus, errorThrown);
+                }
+         });
+    }
+
+    function cargarGridDates(data){
+        $("#cuerpoDates").html("");
+
+        for(var i=0; i<data.length; i++){
+            var tr=`
+             <tr>
+                <th>`+ data[i].strDate + `</th>
+                <th> `+ data[i].namePet +`</th>
+                <th> `+ data[i].services +`</th>
+                <th> `+ data[i].state + `</th>
+                <th> `+ data[i].strClosedDate + `</th>
+                <td>
+                <button  class="btn btn-warning" onclick="editarDate(`+ data[i].id +`)"><i class="fas fa-edit"></i> Editar</button>
+                <button  class="btn btn-info" onclick="cancelarDate(`+ data[i].id +`)"><i class="fas fa-calendar-times"></i> Cancelar</button>
+                <button class="btn btn-danger" onclick="eliminarDate(`+ data[i].id +`)"><i class="far fa-trash-alt"></i> Eliminar</button>
+                </td>
+            </tr>
+            `;
+            $("#cuerpoDates").append(tr);
+        }
+    }
+
+    function NuevaCita()
+    {
+       limpiarForm();
+       $('#idTituloModalDates').html("Crear Cita");
+       $('#modalDates').modal({keyboard:true});
+    }
+
+    function getServices()
+    {
+        modalProcesando(true);
+        $.ajax({
+            //Accion del controlador, nombre del controlador)
+            url: '@Url.Action("GetAllServices", "Dates")',
+            method: 'GET',
+            dataType: "json",
+            success: function (data) {
+
+                modalProcesando(false);
+                listaServicios = data;
+                //console.log(listaServicios);
+
+                cargarServices(listaServicios);
+            },
+            error: function (xhr, textStatus, errorThrown) {
+                    modalProcesando(false);
+                    console.error(xhr, textStatus, errorThrown);
+                }
+         });
+    }
+
+    function cargarServices(data, selected)
+    {
+        $("#cmbService").empty();
+        $("#cmbService").append('<option value="" disabled selected>Seleccione un servicio </option>');
+        $.each(data, function (i, lista) {
+            if (data[i].id == selected) {
+                $("#cmbService").append('<option value="' + data[i].id + '"selected>' + data[i].services + '</option>');
+            }
+            else {
+                $("#cmbService").append('<option value="' + data[i].id + '">' + data[i].services + '</option>');
+            }
+         
+                 
+        });
+    }
+
+    function seleccionarService()
+    {
+        var combo = document.getElementById("cmbService");
+        let selected = combo.options[combo.selectedIndex].value;
+        //let text = combo.options[combo.selectedIndex].text;
+        idService = selected;
+    }
+
+    function getAllMyPets()
+    {
+        modalProcesando(true);
+        $.ajax({
+            url: '@Url.Action("GetAllMyPets", "Pet")',
+            method: 'GET',
+            dataType: "json",
+            success: function (data) {
+
+                modalProcesando(false);
+                listaPets = data;
+                //console.log(listaPets);
+
+                cargarPets(listaPets);
+                
+            },
+            error: function (xhr, textStatus, errorThrown) {
+                    modalProcesando(false);
+                    console.error(xhr, textStatus, errorThrown);
+                }
+         });
+    }
+
+    function cargarPets(data, selected)
+    {   
+        $("#cmbPet").empty();
+        $("#cmbPet").append('<option value="" disabled selected>Seleccione una mascota </option>');
+        $.each(data, function (i, lista) {
+            if(data[i].id == selected){
+                $("#cmbPet").append('<option value="' + data[i].id + '"selected>' + data[i].name + ' - ' + data[i].typePet +'</option>');
+                //$("#cmbSex").append('<option value="' + data[i].idSex + '"selected>' + data[i].sex + '</option>');
+            }
+            else{
+                $("#cmbPet").append('<option value="' + data[i].id + '">' + data[i].name + ' - ' + data[i].typePet +'</option>');
+            }
+        });
+    }
+    //obtener el id de la opcion selecionada del combobox
+    function seleccionarPet()
+    {
+        var combo = document.getElementById("cmbPet");
+        let selected = combo.options[combo.selectedIndex].value;
+        //let text = combo.options[combo.selectedIndex].text;
+        idPet = selected;
+    }
+
+    function validarForm()
+    {
+        if($("#txtContact").val()=='')
+        {
+                $("#txtNamePet").focus();
+                toastMessage('warning','El contacto es obligatorio.');
+                return false;
+        }
+        if($("#txtDateAppointment").val()=='')
+        {
+                $("#txtDateAppointment").focus();
+                toastMessage('warning','La fecha de la cita es obligatoria.');
+                return false;
+        }
+        if(idPet=='')
+        {
+                $("#cmbPet").focus();
+                toastMessage('warning','La mascota es obligatoria.');
+                return false;
+        }
+        if(idService=='')
+        {
+                $("#cmbService").focus();
+                toastMessage('warning','El servicio es obligatorio.');
+                return false;
+        }
+        return true;
+    }
+
+    function limpiarForm()
+    {
+       //console.log("limpiar formulario")
+       $("#txtContact").val('');
+       $("#txtDateAppointment").val('');
+       idPet='';
+       idService= ''
+    }
+
+    function guardarDate()
+    {
+        if(validarForm())
+        {
+            
+            let parametro={
+                Contact:$("#txtContact").val(),
+                AppointmentDate:$("#txtDateAppointment").val(),
+                IdPet:idPet,
+                IdServices:idService,
+                Description:$("#txtDescription").val()
+            };
+
+            if(idDate == ''){
+
+                modalProcesando(true);
+                $.ajax({
+                    url: '@Url.Action("InsertDate", "Dates")',
+                    method: 'POST',
+                    data:parametro,
+                    dataType: "json",
+                    success: function (data) {
+                        modalProcesando(false);
+                       
+
+                        if (data){
+                            $('#modalDates').modal('hide'); 
+                            toastMessage('success','Cita guardada exitosamente!');
+
+                            limpiarForm();
+                            getAllMyDates();
+                            
+                        }else{
+                             toastMessage('error','Hubo un error al guardar, por favor intentelo nuevamente!');
+                        }
+                        
+                    },
+                    error: function (xhr, textStatus, errorThrown) {
+                            modalProcesando(false);
+                            toastMessage('error','Hubo un error al guardar, por favor intentalo nuevamente!');
+                            console.error(xhr, textStatus, errorThrown);
+                        }
+                 });
+            } 
+            else{
+                parametro.Id = idDate;
+                parametro.IdState = idState;
+
+                modalProcesando(true);
+                $.ajax({
+                    url: '@Url.Action("UpdateDate", "Dates")',
+                    method: 'PUT',
+                    data:parametro,
+                    dataType: "json",
+                    success: function (data) {
+                        modalProcesando(false);
+                        console.log(listaPets);
+                        if (data){
+                            $('#modalDates').modal('hide');
+                            limpiarForm();
+                            toastMessage('success','Cita guardada exitosamente!');
+                            getAllMyDates();
+
+                        }else{
+                             toastMessage('error','Hubo un error al guardar, por favor intentarlo nuevamente!');
+                        }
+                    },
+                    error: function (xhr, textStatus, errorThrown) {
+                            modalProcesando(false);
+                            toastMessage('error','Hubo un error al guardar, por favor intentarlo nuevamente!');
+                            console.error(xhr, textStatus, errorThrown);
+                        }
+                 });
+            }
+        }
+    }
+
+    function eliminarDate(idDate)
+    {
+        console.log("mandó a eliminar", idDate);
+        Swal.fire({
+            title: '¿Confirmar Eliminacion?',
+            text: "No podrás revertir esto!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            cancelButtonText: 'Cancelar',
+            confirmButtonText: 'Si, Eliminar!',
+        }).then((result) => {
+            if (result.isConfirmed) {
+
+                modalProcesando(true);
+                //petición
+                $.ajax({
+                    url: '@Url.Action("DeleteDate", "Dates")',
+                    method: 'DELETE',
+                    data:{
+                        idDate:idDate
+                    },
+                    dataType: "json",
+                    success: function (data) {
+
+                        modalProcesando(false);
+                        console.log(data);
+
+                        //comprueba que el response sea true
+                        if (data.isSuccess){
+                            //filter trae la lista y omite el id del que se elimino con la expresion lambda
+                            listaDates = listaDates.filter(x=>x.id != idDate);
+                            cargarGridDates(listaDates);
+
+                            Swal.fire(
+                                'Eliminado!',
+                                data.message,
+                                'success');
+                        }else{
+                            Swal.fire(
+                                'Error!',
+                                data.message,
+                                'error');
+                        }
+                     },
+                     error: function (xhr, textStatus, errorThrown) {
+                         modalProcesando(false);
+                         console.error(xhr, textStatus, errorThrown);
+                     }
+                  });
+                }
+            });
+    }
+
+    function editarDate(id)
+    {
+        idDate = id;
+        let date = listaDates.find(x=>x.id == idDate);
+
+        idPet = date.idPet;
+        idService = date.idServices;
+        idState = date.idState;
+
+        $('#txtContact').val(date.contact);
+        $('#txtDescripcion').val(date.description);
+
+        //setear fechas
+        var now = new Date(date.appointmentDate);
+        var day = ("0" + now.getDate()).slice(-2);
+        var month = ("0" + (now.getMonth() + 1)).slice(-2);
+        var today = now.getFullYear()+"-"+(month)+"-"+(day);
+
+        $('#txtDateAppointment').val(today)
+
+        cargarServices(listaServicios, idService);
+        cargarPets(listaPets, idPet);
+
+        $('#idTituloModalDates').html("Editar Cita");
+        $('#modalDates').modal({keyboard:true});
+    }
+
+    function cancelarDate(id){
+
+            Swal.fire({
+            title: '¿Confirmar Cancelación?',
+            text: "No podrás revertir esto.!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            cancelButtonText: 'Cancelar',
+            confirmButtonText: 'Confirmar!',
+            }).then((result) => {
+            if (result.isConfirmed) {
+                modalProcesando(true);
+                //petición
+                $.ajax({
+                    url: '@Url.Action("CancelDates", "Dates")',
+                    method: 'GET',
+                    data:{
+                        idDates:id
+                    },
+                    dataType: "json",
+                    success: function (data) {
+                        modalProcesando(false);
+                        if (data){
+                            Swal.fire(
+                                'Cita Cancelada!',
+                                'Cita Cancelada exitosamente!',
+                                'success');
+                                getAllMyDates();
+                        }else{
+                            Swal.fire(
+                                'Error!',
+                                'Ha ocurrido un error, por favor vuelva a intentarlo!',
+                                'error');
+                        }
+                     },
+                     error: function (xhr, textStatus, errorThrown) {
+                         modalProcesando(false);
+                         console.error(xhr, textStatus, errorThrown);
+                     }
+                  });
+                }
+            });
+    }
+
+</script>
+}

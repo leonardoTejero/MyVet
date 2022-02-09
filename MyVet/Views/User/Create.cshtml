@@ -1,0 +1,51 @@
+﻿@model Infraestructure.Entity.Model.UserEntity
+@{
+}
+
+<h1> Crear Usuario</h1>
+<hr />
+<div class="row">
+    <div class="col-md-6">
+        <form asp-action="Create">
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+            <div class="form-group">
+                <label class="control-label"> Nombre</label>
+                <input asp-for="Name" type="text" maxlength="100" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label class="control-label"> Apellido</label>
+                <input asp-for="LastName" type="text" maxlength="100" class="form-control" />
+                <span asp-validation-for="LastName" class="text-danger"></span>
+            </div>
+            <div class="form-group">
+                <label class="control-label"> Email</label>
+                <input asp-for="Email" type="text" maxlength="200" class="form-control" />
+                <span asp-validation-for="Email" class="text-danger"></span>
+            </div>
+
+            <div class="form-group">
+                <label class="control-label"> Roles</label>
+                <select asp-for="IdUser" class="form-control" required asp-items="ViewBag.Roles"></select>
+            </div>
+
+            <div class="form-group">
+                <input type="submit" value="Guardar" class="btn btn-primary" /> |
+                <a asp-action="Index" class="btn btn-info">Volver a lista!</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+
+<script type="text/javascript" charset="utf-8">
+    $(document).ready(function () {
+        console.log("Hola mundo");
+    });
+</script>
+}
